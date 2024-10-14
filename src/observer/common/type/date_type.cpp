@@ -24,9 +24,9 @@ int DateType::compare(const Value &left, const Value &right) const
 RC DateType::to_string(const Value &val, string &result) const
 {
     stringstream ss;
-    ss << std::setw(4) << std::setfill('0') << (val.value_.int_value_ >> 16) << "-"
-       << std::setw(2) << std::setfill('0') << ((val.value_.int_value_ >> 8) & 0xFF) << "-"
-       << std::setw(2) << std::setfill('0') << (val.value_.int_value_ & 0xFF);
+    ss << std::setw(4) << std::setfill('0') << (val.value_.int_value_ / 10000) << "-"
+       << std::setw(2) << std::setfill('0') << (val.value_.int_value_ / 100 & 0xFF) << "-"
+       << std::setw(2) << std::setfill('0') << (val.value_.int_value_);
     result = ss.str();
     return RC::SUCCESS;
 }
