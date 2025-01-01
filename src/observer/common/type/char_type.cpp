@@ -18,7 +18,7 @@ int CharType::compare(const Value &left, const Value &right) const
 {
   // left 是 string。right 是数字的情况，需要将 string 转为数字再比较
   if (left.attr_type() == AttrType::CHARS && (right.attr_type() == AttrType::INTS || right.attr_type() == AttrType::FLOATS)) {
-    float this_value = common::db_str_to_float(left.value_.pointer_value_);
+    //float this_value = common::db_str_to_float(left.value_.pointer_value_);
     float another_value = right.attr_type() == AttrType::INTS ? right.value_.int_value_ : right.value_.float_value_;
     return common::compare_float((void *)&this_value, (void *)&another_value);
   }
