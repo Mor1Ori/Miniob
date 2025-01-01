@@ -102,12 +102,6 @@ public:
           default: return RC::VALUE_TYPE_MISMATCH;
         }
         break;
-      case AttrType::VECTORS:
-        switch (right.attr_type()) {
-          case AttrType::VECTORS: result.set_type(AttrType::VECTORS); break;
-          default: return RC::VALUE_TYPE_MISMATCH;
-        }
-        break;
       default: return RC::VALUE_TYPE_MISMATCH;
     }
     return RC::SUCCESS;
