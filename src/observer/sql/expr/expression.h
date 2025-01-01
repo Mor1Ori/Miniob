@@ -47,7 +47,7 @@ enum class ExprType
   CONJUNCTION,  ///< 多个表达式使用同一种关系(AND或OR)来联结
   ARITHMETIC,   ///< 算术运算
   AGGREGATION,  ///< 聚合运算
-  LIKE,         ///<  字符串匹配
+  LIKE,          ///<  字符串匹配
   IS_NULL       ///< 判断是否为 NULL
 };
 

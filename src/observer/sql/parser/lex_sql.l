@@ -62,6 +62,7 @@ extern double atof();
 /* 左侧是宏定义，右侧是正则表达式，用于下面规则的匹配 */
 WHITE_SAPCE      [\ \t\b\f]
 DIGIT            [0-9]+
+FLOAT            [0-9]*\.[0-9]+
 
 ID               [A-Za-z_]+[A-Za-z0-9_]*
 DOT              \.
