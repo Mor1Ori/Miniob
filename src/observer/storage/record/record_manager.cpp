@@ -68,7 +68,7 @@ string PageHeader::to_string() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-RecordPageIterator::RecordPageIterator() = default;
+RecordPageIterator::RecordPageIterator()  = default;
 RecordPageIterator::~RecordPageIterator() = default;
 
 void RecordPageIterator::init(RecordPageHandler *record_page_handler, SlotNum start_slot_num /*=0*/)
@@ -201,7 +201,8 @@ RC RecordPageHandler::init_empty_page(
     }
   }
 
-  rc = log_handler_.init_new_page(frame_, page_num, span(reinterpret_cast<const char *>(column_index), column_num * sizeof(int)));
+  rc = log_handler_.init_new_page(
+      frame_, page_num, span(reinterpret_cast<const char *>(column_index), column_num * sizeof(int)));
   if (OB_FAIL(rc)) {
     LOG_ERROR("Failed to init empty page: write log failed. page_num:record_size %d:%d. rc=%s", 
               page_num, record_size, strrc(rc));
@@ -670,7 +671,7 @@ RC RecordFileHandler::get_record(const RID &rid, Record &record)
   return rc;
 }
 
-RC RecordFileHandler::visit_record(const RID &rid, function<bool(Record &)> updater)
+RC RecordFileHandler::visit_record(const RID &rid, function<RC(Record &)> updater)
 {
   unique_ptr<RecordPageHandler> page_handler(RecordPageHandler::create(storage_format_));
 
@@ -680,22 +681,17 @@ RC RecordFileHandler::visit_record(const RID &rid, function<bool(Record &)> upda
     return rc;
   }
 
+  // 需要将数据复制出来再修改，否则update_record调用失败但是实际上数据却更新成功了，
+  // 会导致数据库状态不正确
   Record inplace_record;
   rc = page_handler->get_record(rid, inplace_record);
   if (OB_FAIL(rc)) {
     LOG_WARN("failed to get record from record page handle. rid=%s, rc=%s", rid.to_string().c_str(), strrc(rc));
     return rc;
   }
-
-  // 需要将数据复制出来再修改，否则update_record调用失败但是实际上数据却更新成功了，
-  // 会导致数据库状态不正确
-  Record record;
-  record.copy_data(inplace_record.data(), inplace_record.len());
-  record.set_rid(rid);
-
-  bool updated = updater(record);
-  if (updated) {
-    rc = page_handler->update_record(rid, record.data());
+  rc = updater(inplace_record);
+  if (rc == RC::SUCCESS) {
+    rc = page_handler->update_record(rid, inplace_record.data());
   }
   return rc;
 }
@@ -829,6 +825,9 @@ RC RecordFileScanner::close_scan()
     delete record_page_handler_;
     record_page_handler_ = nullptr;
   }
+
+  // SSQ 需要加上这个才能正常运行。但是不知道会不会导致 memory leak
+  record_page_iterator_ = RecordPageIterator();
 
   return RC::SUCCESS;
 }

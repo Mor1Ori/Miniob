@@ -90,6 +90,7 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
         STRING_T
         FLOAT_T
         DATE_T
+        VECTOR_T
         HELP
         EXIT
         DOT //QUOTE
@@ -101,6 +102,10 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
         AND
         SET
         ON
+        IN
+        NOT_IN
+        EXISTS
+        NOT_EXISTS
         LOAD
         DATA
         INFILE
@@ -117,12 +122,16 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
         NOT
         NULL_T
         LIKE
+        L2_DISTANCE
+        COSINE_DISTANCE
+        INNER_PRODUCT
         IS
         COUNT
         MAX
         MIN
         AVG
         SUM
+        TEXT_T
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -153,6 +162,7 @@ UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
 %token <string> ID
 %token <string> SSS
 %token <string> DATE
+%token <string> VECTOR
 //非终结符
 
 /** 
@@ -363,7 +373,7 @@ attr_def:
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;
       $$->name = $1;
-      $$->length = $4;
+      $$->arr_len = $4;
       $$->nullable = false;
       free($1);
     }
@@ -372,7 +382,7 @@ attr_def:
           $$ = new AttrInfoSqlNode;
           $$->type = (AttrType)$2;
           $$->name = $1;
-          $$->length = $4;
+          $$->arr_len = $4;
           $$->nullable = true;
           free($1);
     }
@@ -381,7 +391,7 @@ attr_def:
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;
       $$->name = $1;
-      $$->length = $4;
+      $$->arr_len = $4;
       $$->nullable = true;
       free($1);
     }
@@ -390,7 +400,7 @@ attr_def:
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;
       $$->name = $1;
-      $$->length = 4;
+      $$->arr_len = 1;
       $$->nullable = false;
       free($1);
     }
@@ -399,7 +409,7 @@ attr_def:
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;
       $$->name = $1;
-      $$->length = 4;
+      $$->arr_len = 1;
       $$->nullable = true;
       free($1);
     }
@@ -408,7 +418,7 @@ attr_def:
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;
       $$->name = $1;
-      $$->length = 4;
+      $$->arr_len = 1;
       $$->nullable = true;
       free($1);
     }
@@ -421,6 +431,8 @@ type:
     | STRING_T { $$ = static_cast<int>(AttrType::CHARS); }
     | FLOAT_T  { $$ = static_cast<int>(AttrType::FLOATS); }
     | DATE_T   { $$ = static_cast<int>(AttrType::DATES); }
+    | VECTOR_T   { $$ = static_cast<int>(AttrType::VECTORS); }
+    | TEXT_T     { $$ = static_cast<int>(AttrType::TEXTS); }
     ;
 insert_stmt:        /*insert   语句的语法解析树*/
     INSERT INTO ID VALUES LBRACE value value_list RBRACE 
@@ -490,8 +502,22 @@ value:
       free(tmp);
       free($1);
     }
-    |NULL_T {
+    |
+    VECTOR {
+      // 如果以双引号或单引号开头，去掉头尾的引号
+      if ($1[0] == '\"' || $1[0] == '\'') {
+        char *tmp = common::substr($1,1,strlen($1)-2);
+        $$ = Value::from_vector(tmp);
+        free(tmp);
+      } else {
+        $$ = Value::from_vector($1);
+      }
+      free($1);
+    }
+    | 
+    NULL_T {
       $$ = new Value();
+      $$->set_null();
       @$ = @1;
     }
     ;
@@ -648,6 +674,10 @@ expression:
     | expression '/' expression {
       $$ = create_arithmetic_expression(ArithmeticExpr::Type::DIV, $1, $3, sql_string, &@$);
     }
+    | LBRACE select_stmt RBRACE {
+      $$ = new SubqueryExpr($2);
+      $$->set_name(token_name(sql_string, &@$));
+    }
     | LBRACE expression RBRACE {
       $$ = $2;
       $$->set_name(token_name(sql_string, &@$));
@@ -660,6 +690,12 @@ expression:
       $$->set_name(token_name(sql_string, &@$));
       delete $1;
     }
+    | LBRACE value value_list RBRACE  {
+      std::vector<Value> *values = $3;
+      values->emplace_back(*$2);
+      $$ = new ValueListExpr(*values);
+      $$->set_name(token_name(sql_string, &@$));
+    }
     | rel_attr {
       RelAttrSqlNode *node = $1;
       $$ = new UnboundFieldExpr(node->relation_name, node->attribute_name);
@@ -668,6 +704,18 @@ expression:
     }
     | '*' {
       $$ = new StarExpr();
+    }
+    | L2_DISTANCE LBRACE expression COMMA expression RBRACE {
+      $$ = new VectorDistanceExpr(VectorDistanceExpr::Type::L2_DISTANCE, $3, $5);
+      $$->set_name(token_name(sql_string, &@$));
+    }
+    | COSINE_DISTANCE LBRACE expression COMMA expression RBRACE {
+      $$ = new VectorDistanceExpr(VectorDistanceExpr::Type::COSINE_DISTANCE, $3, $5);
+      $$->set_name(token_name(sql_string, &@$));
+    }
+    | INNER_PRODUCT LBRACE expression COMMA expression RBRACE {
+      $$ = new VectorDistanceExpr(VectorDistanceExpr::Type::INNER_PRODUCT, $3, $5);
+      $$->set_name(token_name(sql_string, &@$));
     }
     ;
 
@@ -787,6 +835,22 @@ condition:
       $$->right_expr = std::unique_ptr<Expression>($3);
       $$->comp_op = $2;
     }
+    // 懒得之后再判断左 expression 是否为空了，直接在这里加上 EXISTS 吧。
+    | EXISTS expression
+    {
+      $$ = new ConditionSqlNode;
+      $$->comp_op = CompOp::EXISTS;
+      // left_expr: SpecialPlaceholderExpr
+      $$->left_expr = std::make_unique<SpecialPlaceholderExpr>();
+      $$->right_expr = std::unique_ptr<Expression>($2);
+    }
+    | NOT_EXISTS expression
+    {
+      $$ = new ConditionSqlNode;
+      $$->comp_op = CompOp::NOT_EXISTS;
+      $$->left_expr = std::make_unique<SpecialPlaceholderExpr>();
+      $$->right_expr = std::unique_ptr<Expression>($2);
+    }
     ;
 
 comp_op:
@@ -800,12 +864,22 @@ comp_op:
     | NOT LIKE { $$ = CompOp::NOT_LIKE; }
     | IS { $$ = CompOp::IS; }
     | IS NOT { $$ = CompOp::NOT_IS; }
+    | IN { $$ = CompOp::IN; }
+    | NOT_IN { $$ = CompOp::NOT_IN; }
+    | EXISTS { $$ = CompOp::EXISTS; }
+    | NOT_EXISTS { $$ = CompOp::NOT_EXISTS; }
     ;
 
 group_by:
     /* empty */
     {
       $$ = nullptr;
+    }
+    | GROUP BY expression_list
+    {
+      $$ = new std::vector<std::unique_ptr<Expression>>;
+      $$->swap(*$3);
+      delete $3;
     }
     ;
 load_data_stmt:

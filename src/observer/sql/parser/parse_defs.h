@@ -65,6 +65,10 @@ enum class CompOp
   NOT_LIKE,     ///< "not like"
   IS,           ///< is null
   NOT_IS,       ///< is not null
+  IN,           ///< in
+  NOT_IN,       ///< not in
+  EXISTS,       ///< exists
+  NOT_EXISTS,   ///< not exists
   NO_OP,
 };
 
@@ -173,7 +177,7 @@ struct AttrInfoSqlNode
 {
   AttrType    type;    ///< Type of attribute
   std::string name;    ///< Attribute name
-  size_t      length;  ///< Length of attribute
+  size_t      arr_len; ///< char()或vector 的元素个数，其他为 1
   bool        nullable;
 };
 

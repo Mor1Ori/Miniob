@@ -82,6 +82,9 @@ QUOTE            [\'\"]
 
 {DIGIT}+                           yylval->number=atoi(yytext); RETURN_TOKEN(NUMBER);  // number 不要考虑负数，而是通过 yacc 识别 expression 前的负号来处理
 {DIGIT}+{DOT}{DIGIT}+              yylval->floats=(float)(atof(yytext)); RETURN_TOKEN(FLOAT);
+\"\[{WHITE_SAPCE}*[\-]?{DIGIT}+(\.{DIGIT}+)?({WHITE_SAPCE}*,{WHITE_SAPCE}*[\-]?{DIGIT}+(\.{DIGIT}+)?)*{WHITE_SAPCE}*\]\" yylval->string=strdup(yytext); RETURN_TOKEN(VECTOR);
+\'\[{WHITE_SAPCE}*[\-]?{DIGIT}+(\.{DIGIT}+)?({WHITE_SAPCE}*,{WHITE_SAPCE}*[\-]?{DIGIT}+(\.{DIGIT}+)?)*{WHITE_SAPCE}*\]\' yylval->string=strdup(yytext); RETURN_TOKEN(VECTOR);
+\[{WHITE_SAPCE}*[\-]?{DIGIT}+(\.{DIGIT}+)?({WHITE_SAPCE}*,{WHITE_SAPCE}*[\-]?{DIGIT}+(\.{DIGIT}+)?)*{WHITE_SAPCE}*\] yylval->string=strdup(yytext); RETURN_TOKEN(VECTOR);
 \"[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}\"          yylval->string=strdup(yytext); RETURN_TOKEN(DATE);
 \'[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}\'          yylval->string=strdup(yytext); RETURN_TOKEN(DATE);
 
@@ -95,6 +98,10 @@ CREATE                                  RETURN_TOKEN(CREATE);
 DROP                                    RETURN_TOKEN(DROP);
 TABLE                                   RETURN_TOKEN(TABLE);
 TABLES                                  RETURN_TOKEN(TABLES);
+IN                                      RETURN_TOKEN(IN);
+"NOT IN"                                RETURN_TOKEN(NOT_IN);
+EXISTS                                  RETURN_TOKEN(EXISTS);
+"NOT EXISTS"                            RETURN_TOKEN(NOT_EXISTS);
 INDEX                                   RETURN_TOKEN(INDEX);
 ON                                      RETURN_TOKEN(ON);
 SHOW                                    RETURN_TOKEN(SHOW);
@@ -119,6 +126,7 @@ INT                                     RETURN_TOKEN(INT_T);
 CHAR                                    RETURN_TOKEN(STRING_T);
 FLOAT                                   RETURN_TOKEN(FLOAT_T);
 DATE                                    RETURN_TOKEN(DATE_T);
+VECTOR                                  RETURN_TOKEN(VECTOR_T);
 LOAD                                    RETURN_TOKEN(LOAD);
 DATA                                    RETURN_TOKEN(DATA);
 INFILE                                  RETURN_TOKEN(INFILE);
@@ -130,6 +138,9 @@ FORMAT                                  RETURN_TOKEN(FORMAT);
 NOT                                     RETURN_TOKEN(NOT);
 NULL                                    RETURN_TOKEN(NULL_T);
 LIKE                                    RETURN_TOKEN(LIKE);
+L2_DISTANCE                             RETURN_TOKEN(L2_DISTANCE);
+COSINE_DISTANCE                         RETURN_TOKEN(COSINE_DISTANCE);
+INNER_PRODUCT                           RETURN_TOKEN(INNER_PRODUCT);
 IS                                      RETURN_TOKEN(IS);
 
 COUNT                                   RETURN_TOKEN(COUNT);
@@ -138,6 +149,7 @@ MIN                                     RETURN_TOKEN(MIN);
 AVG                                     RETURN_TOKEN(AVG);
 SUM                                     RETURN_TOKEN(SUM);
 
+TEXT                                    RETURN_TOKEN(TEXT_T);
 {ID}                                    yylval->string=strdup(yytext); RETURN_TOKEN(ID);
 "("                                     RETURN_TOKEN(LBRACE);
 ")"                                     RETURN_TOKEN(RBRACE);

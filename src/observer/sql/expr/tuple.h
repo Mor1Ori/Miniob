@@ -25,8 +25,9 @@ See the Mulan PSL v2 for more details. */
 #include "common/value.h"
 #include "common/lang/bitmap.h"
 #include "storage/record/record.h"
-
-#include <storage/trx/mvcc_trx.h>
+#include "storage/trx/mvcc_trx.h"
+#include "storage/common/meta_util.h"
+#include "storage/common/text_utils.h"
 
 using Bitmap = common::Bitmap;
 class Table;
@@ -211,9 +212,20 @@ public:
 
     FieldExpr       *field_expr = speces_[index];
     const FieldMeta *field_meta = field_expr->field().meta();
-    cell.set_type(field_meta->type());
-    cell.set_data(this->record_->data() + field_meta->offset(), field_meta->len());
-    cell.set_is_null(bitmap->get_bit(index));
+    if (bitmap->get_bit(index)) {
+      cell.set_null();
+      return RC::SUCCESS;
+    }
+    if (field_meta->type() == AttrType::TEXTS) {
+      TextData text_data;
+      memcpy(&text_data, this->record_->data() + field_meta->offset(), field_meta->len());
+      TextUtils::load_text(table_, &text_data);
+      cell.set_type(AttrType::TEXTS);
+      cell.set_text(text_data.str, text_data.len, true);
+    } else {
+      cell.set_type(field_meta->type());
+      cell.set_data(this->record_->data() + field_meta->offset(), field_meta->len());
+    }
     return RC::SUCCESS;
   }
 
@@ -229,15 +241,33 @@ public:
     FieldExpr       *field_expr = speces_[index];
     const FieldMeta *field_meta = field_expr->field().meta();
     if (data == nullptr) {
-      memcpy(this->record_->data() + field_meta->offset(), cell.data(), cell.data_length());
+      if (field_meta->type() == AttrType::TEXTS && !cell.is_null()) {
+        TextData text_data = {
+            .len = static_cast<size_t>(cell.length()),
+            .str = reinterpret_cast<const TextData *>(cell.data())->str,
+        };
+        TextUtils::dump_text(table_, &text_data);
+        memcpy(this->record_->data() + field_meta->offset(), &text_data, cell.data_length());
+      } else {
+        memcpy(this->record_->data() + field_meta->offset(), cell.data(), cell.data_length());
+      }
       if (cell.is_null()) {
         bitmap->set_bit(field_meta->field_id());  // 设置 null bitmap
       } else {
         bitmap->clear_bit(field_meta->field_id());
       }
     } else {
+      if (field_meta->type() == AttrType::TEXTS && !cell.is_null()) {
+        TextData text_data = {
+            .len = static_cast<size_t>(cell.length()),
+            .str = reinterpret_cast<const TextData *>(cell.data())->str,
+        };
+        TextUtils::dump_text(table_, &text_data);
+        memcpy(data + field_meta->offset(), &text_data, cell.data_length());
+      } else {
+        memcpy(data + field_meta->offset(), cell.data(), cell.data_length());
+      }
       Bitmap new_bitmap(data, null_bitmap_start);
-      memcpy(data + field_meta->offset(), cell.data(), cell.data_length());
       if (cell.is_null()) {
         new_bitmap.set_bit(field_meta->field_id());  // 设置 null bitmap
       } else {
@@ -293,7 +323,7 @@ private:
   Record                  *record_ = nullptr;
   const Table             *table_  = nullptr;
   std::vector<FieldExpr *> speces_;
-  std::unique_ptr<Bitmap>  bitmap            = nullptr;
+  std::unique_ptr<Bitmap>  bitmap            = nullptr;  // 用于标记字段是否为 NULL
   int32_t                  null_bitmap_start = 0;
 };
 

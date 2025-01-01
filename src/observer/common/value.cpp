@@ -32,10 +32,16 @@ Value::Value(bool val) { set_boolean(val); }
 
 Value::Value(const char *s, int len /*= 0*/) { set_string(s, len); }
 
+Value Value::TextValue(const char *s, int len)
+{
+  Value result;
+  result.set_text(s, len);
+  return result;
+}
 Value Value::NullValue()
 {
   Value value;
-  value.is_null_ = true;
+  value.set_null();
   return value;
 }
 // 从 YYYY-MM-DD 格式的日期字符串创建 Value
@@ -47,17 +53,26 @@ Value *Value::from_date(const char *s)
   return val;
 }
 
+// 从向量字符串创建 Value
+Value *Value::from_vector(const char *s)
+{
+  Value *val = new Value();
+  val->set_vector(s);
+  return val;
+}
+
 Value::Value(const Value &other)
 {
   this->attr_type_ = other.attr_type_;
   this->length_    = other.length_;
   this->own_data_  = other.own_data_;
-  this->is_null_   = other.is_null_;
   switch (this->attr_type_) {
     case AttrType::CHARS: {
       set_string_from_other(other);
     } break;
-
+    case AttrType::TEXTS: {
+      set_text_from_other(other);
+    } break;
     default: {
       this->value_ = other.value_;
     } break;
@@ -70,7 +85,6 @@ Value::Value(Value &&other)
   this->length_    = other.length_;
   this->own_data_  = other.own_data_;
   this->value_     = other.value_;
-  this->is_null_   = other.is_null_;
   other.own_data_  = false;
   other.length_    = 0;
 }
@@ -84,12 +98,13 @@ Value &Value::operator=(const Value &other)
   this->attr_type_ = other.attr_type_;
   this->length_    = other.length_;
   this->own_data_  = other.own_data_;
-  this->is_null_   = other.is_null_;
   switch (this->attr_type_) {
     case AttrType::CHARS: {
       set_string_from_other(other);
     } break;
-
+    case AttrType::TEXTS: {
+      set_text_from_other(other);
+    } break;
     default: {
       this->value_ = other.value_;
     } break;
@@ -107,7 +122,6 @@ Value &Value::operator=(Value &&other) noexcept
   this->length_    = other.length_;
   this->own_data_  = other.own_data_;
   this->value_     = other.value_;
-  this->is_null_   = other.is_null_;
   other.own_data_  = false;
   other.length_    = 0;
   return *this;
@@ -122,15 +136,21 @@ void Value::reset()
         value_.pointer_value_ = nullptr;
       }
       break;
+    case AttrType::TEXTS: {
+      if (own_data_ && value_.text_value_.str != nullptr) {
+        delete[] value_.text_value_.str;
+        value_.text_value_.str = nullptr;
+      }
+    }
     default: break;
   }
 
   attr_type_ = AttrType::UNDEFINED;
   length_    = 0;
   own_data_  = false;
-  is_null_   = false;
 }
 
+// set data 前必须要先设置 type
 void Value::set_data(char *data, int length)
 {
   switch (attr_type_) {
@@ -154,8 +174,28 @@ void Value::set_data(char *data, int length)
       memcpy(&value_.int_value_, data, length);
       length_ = length;
     } break;
+    case AttrType::VECTORS: {
+      int           offset = 0;
+      vector<float> vec;
+      while (offset < length * sizeof(float)) {
+        float f;
+        memcpy(&f, data + offset, sizeof(float));
+        // 如果 f 是 nan，说明数据已经读完
+        if (f != f) {
+          break;
+        }
+        vec.push_back(f);
+        offset += sizeof(float);
+      }
+      value_.vector_value_ = new vector<float>(vec);
+      length_ = value_.vector_value_->size(); // Value 的 length_ 是向量的维度
+    } break;
+    case AttrType::TEXTS: {
+      memcpy(&value_.text_value_, data, length);
+      length_ = length;
+    } break;
     default: {
-      LOG_WARN("unknown data type: %d", attr_type_);
+      ASSERT(false, "unknown data type: %d", attr_type_);
     } break;
   }
 }
@@ -232,8 +272,37 @@ void Value::set_date(int val)
   length_           = sizeof(val);
 }
 
+void Value::set_vector(const char *s)
+{
+  reset();
+  attr_type_     = AttrType::VECTORS;
+  string vector_ = s;
+  vector_        = vector_.substr(1, vector_.size() - 2);  // 去掉中括号
+  vector<float>      vec;
+  std::istringstream iss(vector_);
+  string             token;
+  while (std::getline(iss, token, ',')) {
+    vec.push_back(std::stof(token));
+  }
+  value_.vector_value_ = new vector<float>(vec);
+  length_              = value_.vector_value_->size();
+}
+
+void Value::set_vector(const vector<float> &vec)
+{
+  reset();
+  attr_type_           = AttrType::VECTORS;
+  value_.vector_value_ = new vector<float>(vec);
+  length_              = sizeof(value_.vector_value_);
+}
+
 void Value::set_value(const Value &value)
 {
+  reset();
+  if (value.is_null()) {
+    set_null();
+    return;
+  }
   switch (value.attr_type_) {
     case AttrType::INTS: {
       set_int(value.get_int());
@@ -250,11 +319,16 @@ void Value::set_value(const Value &value)
     case AttrType::DATES: {
       set_date(value.get_int());
     } break;
+    case AttrType::VECTORS: {
+      set_vector(value.get_vector());
+    } break;
+    case AttrType::TEXTS: {
+      set_text(value.value_.text_value_.str, value.value_.text_value_.len);
+    } break;
     default: {
       ASSERT(false, "got an invalid value type");
     } break;
   }
-  set_is_null(value.is_null());
 }
 
 void Value::set_string_from_other(const Value &other)
@@ -267,41 +341,45 @@ void Value::set_string_from_other(const Value &other)
   }
 }
 
-void Value::set_is_null(bool _is_null)
+void Value::set_text_from_other(const Value &other)
 {
-  is_null_ = _is_null;
-  if (!is_null_) {
-    return;
+  ASSERT(attr_type_ == AttrType::TEXTS, "attr type is not TEXTS");
+  if (own_data_ && other.value_.text_value_.str != nullptr && other.length_ != 0) {
+    this->length_ = other.length_;
+    auto buffer   = new char[this->length_ + 1];
+    memcpy(buffer, other.value_.text_value_.str, this->length_);
+    buffer[this->length_]        = '\0';
+    this->value_.text_value_.str = buffer;
+    this->value_.text_value_.len = this->length_;
+  } else {
+    ASSERT(false, "own_data == false not handled");
   }
-  // 为各类型的 null 值准备数据，复制 value 的数据时可以不用考虑 null 值的存在
-  switch (attr_type_) {
-    case AttrType::BOOLEANS: {
-      value_.bool_value_ = false;
-      length_            = sizeof(bool);
-    } break;
-    case AttrType::CHARS: {
-      if (own_data_ && value_.pointer_value_ != nullptr) {
-        break;
-      }
-      value_.pointer_value_    = new char[1];
-      value_.pointer_value_[0] = '\0';
-      length_                  = 0;
-      own_data_                = true;
-    } break;
-    case AttrType::DATES:
-    case AttrType::INTS: {
-      value_.int_value_ = 0;
-      length_           = sizeof(int);
-    } break;
-    case AttrType::FLOATS: {
-      value_.float_value_ = 0;
-      length_             = sizeof(float);
-    } break;
-    case AttrType::UNDEFINED: {
-      ASSERT(false, "please set data type before set null");
-    } break;
-    default: ASSERT(false, "unimplemented");
+}
+
+void Value::set_text(const char *s, int len, bool give_ownership)
+{
+  attr_type_ = AttrType::TEXTS;
+  if (s == nullptr) {
+    length_ = 0;
+  } else {
+    length_                = len;
+    value_.text_value_.len = len;
+    own_data_              = true;
+    if (!give_ownership) {
+      auto buffer = new char[len + 1];
+      memcpy(buffer, s, len);
+      buffer[len]            = '\0';
+      value_.text_value_.str = buffer;
+    } else {
+      value_.text_value_.str = s;
+    }
   }
+}
+// 设置为 NULL 值
+void Value::set_null()
+{
+  reset();
+  attr_type_ = AttrType::NULLS;
 }
 
 const char *Value::data() const
@@ -310,6 +388,21 @@ const char *Value::data() const
     case AttrType::CHARS: {
       return value_.pointer_value_;
     } break;
+    case AttrType::VECTORS: {
+      char *data   = new char[sizeof(float) * length_ + sizeof(float)];
+      int   offset = 0;
+      for (auto &f : *value_.vector_value_) {
+        memcpy(data + offset, &f, sizeof(float));
+        offset += sizeof(float);
+      }
+      // 用 nan 标记数据结束
+      float nan = std::numeric_limits<float>::quiet_NaN();
+      memcpy(data + offset, &nan, sizeof(float));
+      return data;
+    }
+    case AttrType::TEXTS: {
+      return reinterpret_cast<const char *>(&value_.text_value_);
+    }
     default: {
       return (const char *)&value_;
     } break;
@@ -319,7 +412,7 @@ const char *Value::data() const
 string Value::to_string() const
 {
   string res;
-  if (is_null_) {
+  if (is_null()) {
     return "NULL";
   }
   RC rc = DataType::type_instance(this->attr_type_)->to_string(*this, res);
@@ -332,7 +425,7 @@ string Value::to_string() const
 
 int Value::compare(const Value &other) const
 {
-  if (is_null_ || other.is_null_) {
+  if (is_null() || other.is_null()) {
     return INT32_MAX;  // 空值参与比较，返回 false
   }
   return DataType::type_instance(this->attr_type_)->compare(*this, other);
@@ -399,25 +492,45 @@ float Value::get_float() const
 
 string Value::get_string() const { return this->to_string(); }
 
+vector<float> Value::get_vector() const
+{
+  switch (attr_type_) {
+    case AttrType::VECTORS: {
+      return *value_.vector_value_;
+    } break;
+    default: {
+      LOG_WARN("unknown data type. type=%d", attr_type_);
+      return vector<float>();
+    }
+  }
+}
+
 bool Value::get_boolean() const
 {
   switch (attr_type_) {
+    case AttrType::TEXTS:
     case AttrType::CHARS: {
+      const char *str;
+      if (attr_type_ == AttrType::TEXTS) {
+        str = value_.text_value_.str;
+      } else {
+        str = value_.pointer_value_;
+      }
       try {
-        float val = std::stof(value_.pointer_value_);
+        float val = std::stof(str);
         if (val >= EPSILON || val <= -EPSILON) {
           return true;
         }
 
-        int int_val = std::stol(value_.pointer_value_);
+        int int_val = std::stol(str);
         if (int_val != 0) {
           return true;
         }
 
-        return value_.pointer_value_ != nullptr;
+        return str != nullptr;
       } catch (exception const &ex) {
-        LOG_TRACE("failed to convert string to float or integer. s=%s, ex=%s", value_.pointer_value_, ex.what());
-        return value_.pointer_value_ != nullptr;
+        LOG_TRACE("failed to convert string to float or integer. s=%s, ex=%s", str  , ex.what());
+        return str != nullptr;
       }
     } break;
     case AttrType::INTS: {
@@ -441,7 +554,7 @@ bool Value::get_boolean() const
 // 不会判断是否是 date 类型，需要调用者提前自己判断
 bool Value::is_date_valid() const
 {
-  if (is_null_) {
+  if (is_null()) {
     return true;
   }
   int date  = get_int();
