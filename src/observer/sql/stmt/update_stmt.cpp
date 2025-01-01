@@ -23,7 +23,7 @@ UpdateStmt::UpdateStmt(
     : table_(table), field_metas_(std::move(attrs)), exprs_(std::move(exprs)), filter_stmt_(stmt)
 {}
 
-RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt)
+RC UpdateStmt::create(Db *db, UpdateSqlNode &update, Stmt *&stmt)
 {
   // 检查表名是否存在
   Table *table = db->find_table(update.relation_name.c_str());
@@ -41,7 +41,7 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt)
   for (const auto &[attr, expr] : update.update_infos) {
     auto field_meta = meta.field(attr.c_str());
     if (field_meta == nullptr) {
-      LOG_WARN("field %s not found in table %s", field_meta->name(), table->name());
+      LOG_WARN("field %s not found in table %s", attr.c_str(), table->name());
       return RC::SCHEMA_FIELD_NOT_EXIST;
     }
     field_metas.push_back(*field_meta);
@@ -54,9 +54,9 @@ RC UpdateStmt::create(Db *db, const UpdateSqlNode &update, Stmt *&stmt)
   }
   std::unordered_map<std::string, Table *> table_map   = {{update.relation_name, table}};
   FilterStmt                              *filter_stmt = nullptr;
-  RC rc = FilterStmt::create(db, table, &table_map, update.conditions.data(), update.conditions.size(), filter_stmt);
+  RC rc = FilterStmt::create(db, table, &table_map, update.conditions, filter_stmt);
   if (rc != RC::SUCCESS) {
-    LOG_WARN("cannot construct filter stmt");
+    LOG_ERROR("cannot construct filter stmt");
     return rc;
   }
   stmt = new UpdateStmt(table, std::move(field_metas), std::move(bound_expressions), filter_stmt);

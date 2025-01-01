@@ -48,8 +48,9 @@ int DateType::cast_cost(AttrType type)
 // 将 YYYYMMDD 格式的时间转换为 YYYY-MM-DD 格式
 RC DateType::to_string(const Value &val, string &result) const
 {
-  stringstream ss;
-  ss << val.value_.int_value_;
-  result = ss.str().substr(0, 4) + "-" + ss.str().substr(4, 2) + "-" + ss.str().substr(6, 2);
+  int year  = val.value_.int_value_ / 10000;
+  int month = (val.value_.int_value_ / 100) % 100;
+  int day   = val.value_.int_value_ % 100;
+  result    = std::to_string(year) + "-" + (month < 10 ? "0" : "") + std::to_string(month) + "-" + (day < 10 ? "0" : "") + std::to_string(day);
   return RC::SUCCESS;
 }

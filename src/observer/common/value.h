@@ -35,8 +35,8 @@ public:
   friend class BooleanType;
   friend class CharType;
   friend class DateType;
-  /// 构造NULL
-  Value();
+  /// 默认构造非空的Value
+  Value() = default;
 
   ~Value() { reset(); }
 
@@ -46,6 +46,10 @@ public:
   explicit Value(float val);
   explicit Value(bool val);
   explicit Value(const char *s, int len = 0);
+
+
+  /// 构造类型未定义的 NULL
+  static Value NullValue();
 
   static Value *from_date(const char *s);
 
@@ -59,7 +63,6 @@ public:
 
   static RC add(const Value &left, const Value &right, Value &result)
   {
-    // NULL 参与算术运算产生 NULL
     if (left.is_null() || right.is_null()) {
       result.set_is_null(true);
       return RC::SUCCESS;
@@ -142,8 +145,8 @@ public:
   float  get_float() const;
   string get_string() const;
   bool   get_boolean() const;
-
-private:
+  
+  // 这里把下面的 setter 都放到了 public 里面，这样可以直接通过 Value 对象调用这些方法
   void set_int(int val);
   void set_float(float val);
   void set_string(const char *s, int len = 0);
@@ -153,7 +156,7 @@ private:
 
 private:
   AttrType attr_type_ = AttrType::UNDEFINED;
-  int      length_    = 0;
+  int      length_    = 0; // 对于向量数据，length_ 表示向量的维度
   bool     is_null_   = false;
 
   union Val

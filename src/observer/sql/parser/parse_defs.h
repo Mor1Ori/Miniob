@@ -21,7 +21,6 @@ See the Mulan PSL v2 for more details. */
 #include "common/value.h"
 
 class Expression;
-
 /**
  * @defgroup SQLParser SQL Parser
  */
@@ -37,6 +36,17 @@ struct RelAttrSqlNode
 {
   std::string relation_name;   ///< relation name (may be NULL) 表名
   std::string attribute_name;  ///< attribute name              属性名
+};
+
+/**
+ * @brief 描述一个relation
+ * @ingroup SQLParser
+ * @author Nelson Boss
+ */
+struct RelationSqlNode
+{
+  std::string name;  ///< relation name
+  std::string alias;
 };
 
 /**
@@ -58,25 +68,33 @@ enum class CompOp
   NO_OP,
 };
 
+enum class AggregateType
+{
+  COUNT,
+  MAX,
+  MIN,
+  AVG,
+  SUM,
+};
+
 /**
  * @brief 表示一个条件比较
  * @ingroup SQLParser
  * @details 条件比较就是SQL查询中的 where a>b 这种。
- * 一个条件比较是有两部分组成的，称为左边和右边。
- * 左边和右边理论上都可以是任意的数据，比如是字段（属性，列），也可以是数值常量。
- * 这个结构中记录的仅仅支持字段和值。
+ * 直接用一个 ComparisonExpr 表示
  */
 struct ConditionSqlNode
 {
-  int left_is_attr;              ///< TRUE if left-hand side is an attribute
-                                 ///< 1时，操作符左边是属性名，0时，是属性值
-  Value          left_value;     ///< left-hand side value if left_is_attr = FALSE
-  RelAttrSqlNode left_attr;      ///< left-hand side attribute
-  CompOp         comp;           ///< comparison operator
-  int            right_is_attr;  ///< TRUE if right-hand side is an attribute
-                                 ///< 1时，操作符右边是属性名，0时，是属性值
-  RelAttrSqlNode right_attr;     ///< right-hand side attribute if right_is_attr = TRUE 右边的属性
-  Value          right_value;    ///< right-hand side value if right_is_attr = FALSE
+
+  std::unique_ptr<Expression> left_expr;
+  std::unique_ptr<Expression> right_expr;
+  CompOp                      comp_op;
+};
+
+struct JoinSqlNode
+{
+  RelationSqlNode relation;  ///< Relation to join with
+  std::vector<ConditionSqlNode> conditions;
 };
 
 /**
@@ -93,7 +111,7 @@ struct ConditionSqlNode
 struct SelectSqlNode
 {
   std::vector<std::unique_ptr<Expression>> expressions;  ///< 查询的字段的表达式
-  std::vector<std::string>                 relations;    ///< 查询的表
+  std::vector<RelationSqlNode>             relations;    ///< 查询的表
   std::vector<ConditionSqlNode>            conditions;   ///< 查询条件，使用AND串联起来多个条件
   std::vector<std::unique_ptr<Expression>> group_by;     ///< group by clause
 };

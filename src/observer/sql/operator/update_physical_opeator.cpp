@@ -2,8 +2,8 @@
 
 RC UpdatePhysicalOperator::open(Trx *trx)
 {
-  auto& child = children_[0];
-  RC rc = child->open(trx);
+  auto &child = children_[0];
+  RC    rc    = child->open(trx);
   if (OB_FAIL(rc)) {
     LOG_WARN("child operator open failed: %s", strrc(rc));
     return rc;

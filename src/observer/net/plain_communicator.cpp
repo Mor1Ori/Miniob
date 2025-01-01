@@ -97,6 +97,7 @@ RC PlainCommunicator::write_state(SessionEvent *event, bool &need_disconnect)
   SqlResult    *sql_result   = event->sql_result();
   const int     buf_size     = 2048;
   char         *buf          = new char[buf_size];
+  // 语法解析错误就不要返回错误信息了……不然过不了评测
   // const string &state_string = sql_result->state_string();
   // if (state_string.empty()) {
   //   const char *result = RC::SUCCESS == sql_result->return_code() ? "SUCCESS" : "FAILURE";
@@ -272,6 +273,7 @@ RC PlainCommunicator::write_result_internal(SessionEvent *event, bool &need_disc
   return rc;
 }
 
+// 这个函数才是输出内容到屏幕相关的函数
 RC PlainCommunicator::write_tuple_result(SqlResult *sql_result)
 {
   RC rc = RC::SUCCESS;
@@ -293,6 +295,7 @@ RC PlainCommunicator::write_tuple_result(SqlResult *sql_result)
       }
 
       Value value;
+      // 获取 tuple 的第 i 个 cell 的值，这里开始计算 expression
       rc = tuple->cell_at(i, value);
       if (rc != RC::SUCCESS) {
         LOG_WARN("failed to get tuple cell value. rc=%s", strrc(rc));

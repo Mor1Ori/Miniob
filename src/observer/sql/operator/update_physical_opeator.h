@@ -5,7 +5,6 @@
 class Trx;
 class DeleteStmt;
 
-
 class UpdatePhysicalOperator : public PhysicalOperator
 {
 public:
@@ -24,7 +23,7 @@ public:
   Tuple *current_tuple() override { return nullptr; }
 
 private:
-  Table              *table_ = nullptr;
-  std::vector<FieldMeta> field_metas_;
+  Table                                   *table_ = nullptr;
+  std::vector<FieldMeta>                   field_metas_;
   std::vector<std::unique_ptr<Expression>> exprs_;
 };

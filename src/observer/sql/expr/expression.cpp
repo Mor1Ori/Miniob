@@ -505,7 +505,7 @@ RC ArithmeticExpr::try_get_value(Value &value) const
   if (right_) {
     rc = right_->try_get_value(right_value);
     if (rc != RC::SUCCESS) {
-      LOG_WARN("failed to get value of right expression. rc=%s", strrc(rc));
+      LOG_ERROR("failed to get value of right expression. rc=%s", strrc(rc));
       return rc;
     }
   }
@@ -552,7 +552,7 @@ unique_ptr<Aggregator> AggregateExpr::create_aggregator() const
 {
   unique_ptr<Aggregator> aggregator;
   switch (aggregate_type_) {
-    case Type::SUM: {
+    case AggregateType::SUM: {
       aggregator = make_unique<SumAggregator>();
       break;
     }

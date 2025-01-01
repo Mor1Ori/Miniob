@@ -231,6 +231,7 @@ public:
     if (cell.is_null()) {
       bitmap->set_bit(field_meta->field_id());  // 设置 null bitmap
     }
+
     return RC::SUCCESS;
   }
 
