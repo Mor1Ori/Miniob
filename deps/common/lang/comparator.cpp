@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "common/defs.h"
 #include <string.h>
+#include <math.h>
 
 #include "common/lang/algorithm.h"
 
@@ -46,7 +47,7 @@ int compare_float(void *arg1, void *arg2)
   return 0;
 }
 
-int compare_string(void *arg1, int arg1_max_length, void *arg2, int arg2_max_length)
+int compare_string(const void *arg1, int arg1_max_length, const void *arg2, int arg2_max_length)
 {
   const char *s1     = (const char *)arg1;
   const char *s2     = (const char *)arg2;
@@ -65,5 +66,27 @@ int compare_string(void *arg1, int arg1_max_length, void *arg2, int arg2_max_len
   }
   return 0;
 }
+
+
+float db_str_to_float(const char *str) {
+    float this_value = 0;
+    bool entering_dot = false;
+    int dot_index = 1;
+    for (int i = 0; i < strlen(str); i++) {
+      if (str[i] >= 48 && str[i] <= 57) {
+        if (!entering_dot) {
+          this_value = this_value * 10 + str[i] - 48;
+        } else {
+          this_value += (str[i] - 48) * pow(0.1, dot_index++);
+        }
+      } else {
+        if (str[i] == '.' && !entering_dot) {
+          entering_dot = true;
+        } else break;
+      }
+    }
+    return this_value;
+}
+
 
 }  // namespace common
