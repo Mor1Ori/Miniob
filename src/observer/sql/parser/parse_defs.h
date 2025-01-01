@@ -92,7 +92,7 @@ struct ConditionSqlNode
 
 struct SelectSqlNode
 {
-  std::vector<std::unique_ptr<Expression>> expressions;  ///< 查询的字段的表达式
+  std::vector<std::unique_ptr<Expression>> expressions;  ///< 查询的表达式
   std::vector<std::string>                 relations;    ///< 查询的表
   std::vector<ConditionSqlNode>            conditions;   ///< 查询条件，使用AND串联起来多个条件
   std::vector<std::unique_ptr<Expression>> group_by;     ///< group by clause
@@ -128,13 +128,6 @@ struct DeleteSqlNode
   std::vector<ConditionSqlNode> conditions;
 };
 
-/// 多字段的更新
-struct UpdateInfoNode
-{
-  std::string attr;
-  Expression *expr;
-};
-
 /**
  * @brief 描述一个update语句
  * @ingroup SQLParser
@@ -142,7 +135,8 @@ struct UpdateInfoNode
 struct UpdateSqlNode
 {
   std::string                   relation_name;   ///< Relation to update
-  std::vector<UpdateInfoNode>   update_infos;    ///< 需要更新的字段
+  std::string                   attribute_name;  ///< 更新的字段，仅支持一个字段
+  Value                         value;           ///< 更新的值，仅支持一个字段
   std::vector<ConditionSqlNode> conditions;
 };
 
