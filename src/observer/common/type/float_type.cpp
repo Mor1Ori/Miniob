@@ -18,6 +18,13 @@ See the Mulan PSL v2 for more details. */
 
 int FloatType::compare(const Value &left, const Value &right) const
 {
+  if (left.attr_type() == AttrType::FLOATS && right.attr_type() == AttrType::CHARS) {
+    float this_value = left.value_.float_value_;
+    float another_value = common::db_str_to_float(right.value_.pointer_value_);
+    return common::compare_float((void *)&this_value, (void *)&another_value);
+  }
+  
+
   ASSERT(left.attr_type() == AttrType::FLOATS, "left type is not integer");
   ASSERT(right.attr_type() == AttrType::INTS || right.attr_type() == AttrType::FLOATS, "right type is not numeric");
   float left_val  = left.get_float();
@@ -46,7 +53,7 @@ RC FloatType::divide(const Value &left, const Value &right, Value &result) const
   if (right.get_float() > -EPSILON && right.get_float() < EPSILON) {
     // NOTE:
     // 设置为浮点数最大值是不正确的。通常的做法是设置为NULL，但是当前的miniob没有NULL概念，所以这里设置为浮点数最大值。
-    result.set_float(numeric_limits<float>::max());
+    result.set_is_null(true);
   } else {
     result.set_float(left.get_float() / right.get_float());
   }
@@ -56,6 +63,20 @@ RC FloatType::divide(const Value &left, const Value &right, Value &result) const
 RC FloatType::negative(const Value &val, Value &result) const
 {
   result.set_float(-val.get_float());
+  return RC::SUCCESS;
+}
+
+RC FloatType::max(const Value &left, const Value &right, Value &result) const
+{
+  int cmp = common::compare_float((void *)&left.value_.float_value_, (void *)&right.value_.float_value_);
+  result.set_float(cmp > 0 ? left.value_.float_value_ : right.value_.float_value_);
+  return RC::SUCCESS;
+}
+
+RC FloatType::min(const Value &left, const Value &right, Value &result) const
+{
+  int cmp = common::compare_float((void *)&left.value_.float_value_, (void *)&right.value_.float_value_);
+  result.set_float(cmp < 0 ? left.value_.float_value_ : right.value_.float_value_);
   return RC::SUCCESS;
 }
 

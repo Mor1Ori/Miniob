@@ -51,6 +51,8 @@ enum class ExprType
   IS_NULL       ///< 判断是否为 NULL
 };
 
+std::string expr_type_to_string(ExprType type);
+
 /**
  * @brief 表达式的抽象描述
  * @ingroup Expression
@@ -279,6 +281,7 @@ private:
 class ComparisonExpr : public Expression
 {
 public:
+  ComparisonExpr(CompOp comp, Expression *left, Expression *right);
   ComparisonExpr(CompOp comp, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right);
   virtual ~ComparisonExpr();
 
@@ -410,38 +413,29 @@ private:
 class UnboundAggregateExpr : public Expression
 {
 public:
-  UnboundAggregateExpr(const char *aggregate_name, Expression *child);
+  UnboundAggregateExpr(AggregateType aggregate_type, Expression *child);
+  UnboundAggregateExpr(AggregateType aggregate_type, std::unique_ptr<Expression> child);
   virtual ~UnboundAggregateExpr() = default;
 
   ExprType type() const override { return ExprType::UNBOUND_AGGREGATION; }
 
-  const char *aggregate_name() const { return aggregate_name_.c_str(); }
-
   std::unique_ptr<Expression> &child() { return child_; }
+
+  AggregateType aggregate_type() const { return aggregate_type_; }
 
   RC       get_value(const Tuple &tuple, Value &value) const override { return RC::INTERNAL; }
   AttrType value_type() const override { return child_->value_type(); }
 
 private:
-  std::string                 aggregate_name_;
+  AggregateType               aggregate_type_;
   std::unique_ptr<Expression> child_;
 };
 
 class AggregateExpr : public Expression
 {
 public:
-  enum class Type
-  {
-    COUNT,
-    SUM,
-    AVG,
-    MAX,
-    MIN,
-  };
-
-public:
-  AggregateExpr(Type type, Expression *child);
-  AggregateExpr(Type type, std::unique_ptr<Expression> child);
+  AggregateExpr(AggregateType type, Expression *child);
+  AggregateExpr(AggregateType type, std::unique_ptr<Expression> child);
   virtual ~AggregateExpr() = default;
 
   bool equal(const Expression &other) const override;
@@ -455,7 +449,7 @@ public:
 
   RC get_column(Chunk &chunk, Column &column) override;
 
-  Type aggregate_type() const { return aggregate_type_; }
+  AggregateType aggregate_type() const { return aggregate_type_; }
 
   std::unique_ptr<Expression> &child() { return child_; }
 
@@ -464,26 +458,31 @@ public:
   std::unique_ptr<Aggregator> create_aggregator() const;
 
 public:
-  static RC type_from_string(const char *type_str, Type &type);
+  static RC type_from_string(const char *type_str, AggregateType &type);
 
 private:
-  Type                        aggregate_type_;
+  AggregateType               aggregate_type_;
   std::unique_ptr<Expression> child_;
 };
 
 class LikeExpr : public Expression
 {
 public:
-  LikeExpr(CompOp op, std::unique_ptr<Expression> sExpr, std::unique_ptr<Expression> pExpr);
-  ExprType                     type() const override;
-  AttrType                     value_type() const override;
-  int                          value_length() const override;
+  LikeExpr(bool is_like, Expression *sExpr, Expression *pExpr) : is_like_(is_like), sExpr_(sExpr), pExpr_(pExpr) {}
+  LikeExpr(bool is_like, std::unique_ptr<Expression> sExpr, std::unique_ptr<Expression> pExpr)
+      : is_like_(is_like), sExpr_(std::move(sExpr)), pExpr_(std::move(pExpr))
+  {}
+  ~LikeExpr() override = default;
+
+  ExprType                     type() const override { return ExprType::LIKE; }
+  AttrType                     value_type() const override { return AttrType::BOOLEANS; }
+  int                          value_length() const override { return sizeof(bool); }
   RC                           get_value(const Tuple &tuple, Value &value) const override;
-  std::unique_ptr<Expression> &sExpr();
-  std::unique_ptr<Expression> &pExpr();
+  std::unique_ptr<Expression> &sExpr() { return sExpr_; }
+  std::unique_ptr<Expression> &pExpr() { return pExpr_; }
 
 private:
-  CompOp                      op_;
+  bool                        is_like_;  // true 表示 LIKE, false 表示 NOT LIKE
   std::unique_ptr<Expression> sExpr_;
   std::unique_ptr<Expression> pExpr_;
 };
@@ -491,7 +490,7 @@ private:
 class IsNullExpr : public Expression
 {
 public:
-  IsNullExpr(CompOp op, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right);
+  IsNullExpr(bool is_null, std::unique_ptr<Expression> left, std::unique_ptr<Expression> right);
   ExprType                     type() const override;
   AttrType                     value_type() const override;
   int                          value_length() const override;
@@ -500,7 +499,7 @@ public:
   std::unique_ptr<Expression> &right();
 
 private:
-  CompOp                      op_;
+  bool                        is_null_;  // true 表示 IS NULL, false 表示 IS NOT NULL
   std::unique_ptr<Expression> left_;
   std::unique_ptr<Expression> right_;
 };

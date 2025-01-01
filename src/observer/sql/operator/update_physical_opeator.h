@@ -8,9 +8,10 @@ class DeleteStmt;
 class UpdatePhysicalOperator : public PhysicalOperator
 {
 public:
-  UpdatePhysicalOperator(Table *table, std::vector<FieldMeta>field_metas,
-    std::vector<std::unique_ptr<Expression>> exprs) :
-  table_(table),field_metas_(std::move(field_metas)), exprs_(std::move(exprs)) {}
+  UpdatePhysicalOperator(
+      Table *table, std::vector<FieldMeta> field_metas, std::vector<std::unique_ptr<Expression>> exprs)
+      : table_(table), field_metas_(std::move(field_metas)), exprs_(std::move(exprs))
+  {}
 
   ~UpdatePhysicalOperator() override = default;
 

@@ -41,12 +41,12 @@ ArithmeticExpr *create_arithmetic_expression(ArithmeticExpr::Type type,
   return expr;
 }
 
-UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
+UnboundAggregateExpr *create_aggregate_expression(AggregateType type,
                                            Expression *child,
                                            const char *sql_string,
                                            YYLTYPE *llocp)
 {
-  UnboundAggregateExpr *expr = new UnboundAggregateExpr(aggregate_name, child);
+  UnboundAggregateExpr *expr = new UnboundAggregateExpr(type, child);
   expr->set_name(token_name(sql_string, llocp));
   return expr;
 }
@@ -118,6 +118,11 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         NULL_T
         LIKE
         IS
+        COUNT
+        MAX
+        MIN
+        AVG
+        SUM
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -611,7 +616,27 @@ expression_list:
     }
     ;
 expression:
-    expression '+' expression {
+    COUNT LBRACE expression RBRACE
+    {
+      $$ = create_aggregate_expression(AggregateType::COUNT, $3, sql_string, &@$);
+    }
+    | MAX LBRACE expression RBRACE
+    {
+      $$ = create_aggregate_expression(AggregateType::MAX, $3, sql_string, &@$);
+    }
+    | MIN LBRACE expression RBRACE
+    {
+      $$ = create_aggregate_expression(AggregateType::MIN, $3, sql_string, &@$);
+    }
+    | AVG LBRACE expression RBRACE
+    {
+      $$ = create_aggregate_expression(AggregateType::AVG, $3, sql_string, &@$);
+    }
+    | SUM LBRACE expression RBRACE
+    {
+      $$ = create_aggregate_expression(AggregateType::SUM, $3, sql_string, &@$);
+    }
+    | expression '+' expression {
       $$ = create_arithmetic_expression(ArithmeticExpr::Type::ADD, $1, $3, sql_string, &@$);
     }
     | expression '-' expression {
@@ -628,7 +653,7 @@ expression:
       $$->set_name(token_name(sql_string, &@$));
     }
     | '-' expression %prec UMINUS {
-      $$ = create_arithmetic_expression(ArithmeticExpr::Type::NEGATIVE, $2, nullptr, sql_string, &@$);
+      $$ = create_arithmetic_expression(ArithmeticExpr::Type::NEGATIVE, nullptr, $2, sql_string, &@$);
     }
     | value {
       $$ = new ValueExpr(*$1);
@@ -644,7 +669,6 @@ expression:
     | '*' {
       $$ = new StarExpr();
     }
-    // your code here
     ;
 
 rel_attr:
