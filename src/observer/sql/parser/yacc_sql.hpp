@@ -78,8 +78,8 @@ extern int yydebug;
     TRX_ROLLBACK = 279,            /* TRX_ROLLBACK  */
     INT_T = 280,                   /* INT_T  */
     STRING_T = 281,                /* STRING_T  */
-    DATE_T = 282,                  /* DATE_T  */
-    FLOAT_T = 283,                 /* FLOAT_T  */
+    FLOAT_T = 282,                 /* FLOAT_T  */
+    DATE_T = 283,                  /* DATE_T  */
     HELP = 284,                    /* HELP  */
     EXIT = 285,                    /* EXIT  */
     DOT = 286,                     /* DOT  */
@@ -102,11 +102,16 @@ extern int yydebug;
     LE = 303,                      /* LE  */
     GE = 304,                      /* GE  */
     NE = 305,                      /* NE  */
-    NUMBER = 306,                  /* NUMBER  */
-    FLOAT = 307,                   /* FLOAT  */
-    ID = 308,                      /* ID  */
-    SSS = 309,                     /* SSS  */
-    UMINUS = 310                   /* UMINUS  */
+    NOT = 306,                     /* NOT  */
+    NULL_T = 307,                  /* NULL_T  */
+    LIKE = 308,                    /* LIKE  */
+    IS = 309,                      /* IS  */
+    NUMBER = 310,                  /* NUMBER  */
+    FLOAT = 311,                   /* FLOAT  */
+    ID = 312,                      /* ID  */
+    SSS = 313,                     /* SSS  */
+    DATE = 314,                    /* DATE  */
+    UMINUS = 315                   /* UMINUS  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -115,7 +120,7 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 117 "yacc_sql.y"
+#line 121 "yacc_sql.y"
 
   ParsedSqlNode *                            sql_node;
   ConditionSqlNode *                         condition;
@@ -134,7 +139,7 @@ union YYSTYPE
   int                                        number;
   float                                      floats;
 
-#line 138 "yacc_sql.hpp"
+#line 143 "yacc_sql.hpp"
 
 };
 typedef union YYSTYPE YYSTYPE;

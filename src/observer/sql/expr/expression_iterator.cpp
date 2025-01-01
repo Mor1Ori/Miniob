@@ -62,6 +62,21 @@ RC ExpressionIterator::iterate_child_expr(Expression &expr, function<RC(unique_p
       auto &aggregate_expr = static_cast<AggregateExpr &>(expr);
       rc = callback(aggregate_expr.child());
     } break;
+    case ExprType::LIKE: {
+      auto &like_expr = static_cast<LikeExpr &>(expr);
+      rc              = callback(like_expr.sExpr());
+      if (OB_SUCC(rc)) {
+        rc = callback(like_expr.pExpr());
+      }
+    } break;
+
+    case ExprType::IS_NULL: {
+      auto &is_null_expr = static_cast<IsNullExpr &>(expr);
+      rc                 = callback(is_null_expr.left());
+      if (OB_SUCC(rc)) {
+        rc = callback(is_null_expr.right());
+      }
+    } break;
 
     case ExprType::NONE:
     case ExprType::STAR:

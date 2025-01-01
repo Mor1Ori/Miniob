@@ -88,8 +88,8 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         TRX_ROLLBACK
         INT_T
         STRING_T
-        DATE_T
         FLOAT_T
+        DATE_T
         HELP
         EXIT
         DOT //QUOTE
@@ -112,6 +112,10 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         LE
         GE
         NE
+        NOT
+        NULL_T
+        LIKE
+        IS
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -133,13 +137,18 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
   float                                      floats;
 }
 
+
 %token <number> NUMBER
 %token <floats> FLOAT
 %token <string> ID
 %token <string> SSS
+%token <string> DATE
 //非终结符
 
-/** type 定义了各种解析后的结果输出的是什么类型。类型对应了 union 中的定义的成员变量名称 **/
+/** 
+ * type 定义了各种解析后的结果输出的是什么类型。类型对应了 union 中的定义的成员变量名称 
+ * 左边是上面的 union 中定义的类型，右边是在下面用到的 token，意思就是右边的 token 解析后的结果是左边的类型
+ **/
 %type <number>              type
 %type <condition>           condition
 %type <value>               value
@@ -337,12 +346,49 @@ attr_def_list:
     ;
     
 attr_def:
-    ID type LBRACE number RBRACE 
+    ID type LBRACE number RBRACE NOT NULL_T
     {
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;
       $$->name = $1;
       $$->length = $4;
+      $$->nullable = false;
+      free($1);
+    }
+    | ID type LBRACE number RBRACE NULL_T
+    {
+          $$ = new AttrInfoSqlNode;
+          $$->type = (AttrType)$2;
+          $$->name = $1;
+          $$->length = $4;
+          $$->nullable = true;
+          free($1);
+    }
+    | ID type LBRACE number RBRACE 
+    {
+      $$ = new AttrInfoSqlNode;
+      $$->type = (AttrType)$2;
+      $$->name = $1;
+      $$->length = $4;
+      $$->nullable = true;
+      free($1);
+    }
+    | ID type NOT NULL_T
+    {
+      $$ = new AttrInfoSqlNode;
+      $$->type = (AttrType)$2;
+      $$->name = $1;
+      $$->length = 4;
+      $$->nullable = false;
+      free($1);
+    }
+    | ID type NULL_T
+    {
+      $$ = new AttrInfoSqlNode;
+      $$->type = (AttrType)$2;
+      $$->name = $1;
+      $$->length = 4;
+      $$->nullable = true;
       free($1);
     }
     | ID type
@@ -351,6 +397,7 @@ attr_def:
       $$->type = (AttrType)$2;
       $$->name = $1;
       $$->length = 4;
+      $$->nullable = true;
       free($1);
     }
     ;
@@ -408,6 +455,19 @@ value:
       $$ = new Value(tmp);
       free(tmp);
       free($1);
+    }
+    |DATE {
+      char *tmp = common::substr($1,1,strlen($1)-2);
+      $$ = Value::from_date(tmp);
+      if (!$$->is_date_valid()) {
+        $$->reset();
+      }
+      free(tmp);
+      free($1);
+    }
+    |NULL_T {
+      $$ = new Value();
+      @$ = @1;
     }
     ;
 storage_format:
@@ -650,12 +710,16 @@ condition:
     ;
 
 comp_op:
-      EQ { $$ = EQUAL_TO; }
-    | LT { $$ = LESS_THAN; }
-    | GT { $$ = GREAT_THAN; }
-    | LE { $$ = LESS_EQUAL; }
-    | GE { $$ = GREAT_EQUAL; }
-    | NE { $$ = NOT_EQUAL; }
+      EQ { $$ = CompOp::EQUAL_TO; }
+    | LT { $$ = CompOp::LESS_THAN; }
+    | GT { $$ = CompOp::GREAT_THAN; }
+    | LE { $$ = CompOp::LESS_EQUAL; }
+    | GE { $$ = CompOp::GREAT_EQUAL; }
+    | NE { $$ = CompOp::NOT_EQUAL; }
+    | LIKE { $$ = CompOp::LIKE; }
+    | NOT LIKE { $$ = CompOp::NOT_LIKE; }
+    | IS { $$ = CompOp::IS; }
+    | IS NOT { $$ = CompOp::NOT_IS; }
     ;
 
 // your code here

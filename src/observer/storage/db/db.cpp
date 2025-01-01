@@ -163,25 +163,14 @@ RC Db::create_table(const char *table_name, span<const AttrInfoSqlNode> attribut
 
 RC Db::drop_table(const char *table_name)
 {
-  // check table_name
-  if (opened_tables_.count(table_name) == 0) {
-    LOG_WARN("%s has been opened before.", table_name);
-    return RC::SCHEMA_TABLE_NOT_EXIST;
+  Table *table = find_table(table_name);
+  assert(table != nullptr);
+  RC rc = table->drop(this, table_name, path_.c_str());
+  if (rc != RC::SUCCESS) {
+    return rc;
   }
-
-  // 文件路径可以移到Table模块
-  string  table_file_path = table_meta_file(path_.c_str(), table_name);
-  Table  *table           = find_table(table_name);
-  if (table == nullptr)
-  {
-    LOG_WARN("Failed to find table %s.", table_name);
-    return RC::SCHEMA_TABLE_NOT_EXIST;
-  }
-  table->drop(table_file_path.c_str());
-
-  delete table;
   opened_tables_.erase(table_name);
-  
+  delete table;
   return RC::SUCCESS;
 }
 

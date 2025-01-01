@@ -12,13 +12,15 @@ See the Mulan PSL v2 for more details. */
 // Created by Meiyi & Wangyunlai on 2021/5/13.
 //
 
-#include <limits.h>
-#include <string.h>
+#include <climits>
+#include <cstring>
+#include <cmath>
 
 #include "common/defs.h"
 #include "common/lang/string.h"
 #include "common/lang/span.h"
 #include "common/lang/algorithm.h"
+#include "common/lang/bitmap.h"
 #include "common/log/log.h"
 #include "common/global_context.h"
 #include "storage/db/db.h"
@@ -30,6 +32,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/record/record_manager.h"
 #include "storage/table/table.h"
 #include "storage/trx/trx.h"
+#include "sql/expr/tuple.h"
 
 Table::~Table()
 {
@@ -127,31 +130,20 @@ RC Table::create(Db *db, int32_t table_id, const char *path, const char *name, c
   return rc;
 }
 
-RC Table::drop(const char *path)
+RC Table::drop(Db *db, const char *table_name, const char *base_dir)
 {
-  // 删除文件
-  if (::remove(path) < 0)
-  {
-    LOG_ERROR("Failed to remove table file. file name=%s, errmsg=%s", path, strerror(errno));
+  std::string data_file_path = table_data_file(base_dir, table_name);
+  std::string meta_file_path = table_meta_file(base_dir, table_name);
+  // TODO: delete index
+  data_buffer_pool_->close_file();
+  data_buffer_pool_ = nullptr;  // 防止析构函数中再次尝试关闭文件
+  if (unlink(meta_file_path.c_str()) == -1) {
+    LOG_ERROR("Failed to remove table metadata file for %s due to %s", meta_file_path, strerror(errno));
     return RC::INTERNAL;
   }
-
-  string             data_file = table_data_file(base_dir_.c_str(), table_meta_.name());
-  BufferPoolManager &bpm       = db_->buffer_pool_manager();
-  bpm.remove_file(data_file.c_str());
-  data_buffer_pool_ = nullptr;
-
-  if (record_handler_ != nullptr)
-  {
-    delete record_handler_;
-    record_handler_ = nullptr;
-  }
-
-  for (auto &index : indexes_)
-  {
-    index->destroy();
-    delete index;
-    index = nullptr;
+  if (unlink(data_file_path.c_str()) == -1) {
+    LOG_ERROR("Failed to remove table data file for %s due to %s", meta_file_path, strerror(errno));
+    return RC::INTERNAL;
   }
   return RC::SUCCESS;
 }
@@ -329,12 +321,18 @@ RC Table::set_value_to_record(char *record_data, const Value &value, const Field
 {
   size_t       copy_len = field->len();
   const size_t data_len = value.length();
+  auto         bitmap   = common::Bitmap(record_data + table_meta_.null_bitmap_start(), table_meta_.field_num());
   if (field->type() == AttrType::CHARS) {
     if (copy_len > data_len) {
       copy_len = data_len + 1;
     }
   }
   memcpy(record_data + field->offset(), value.data(), copy_len);
+  if (value.is_null()) {
+    bitmap.set_bit(field->field_id() - table_meta_.sys_field_num());
+  } else {
+    bitmap.clear_bit(field->field_id() - table_meta_.sys_field_num());
+  }
   return RC::SUCCESS;
 }
 
@@ -343,6 +341,7 @@ RC Table::init_record_handler(const char *base_dir)
   string data_file = table_data_file(base_dir, table_meta_.name());
 
   BufferPoolManager &bpm = db_->buffer_pool_manager();
+  // 此处初始化 data_buffer_pool_
   RC                 rc  = bpm.open_file(db_->log_handler(), data_file.c_str(), data_buffer_pool_);
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Failed to open disk buffer pool for file:%s. rc=%d:%s", data_file.c_str(), rc, strrc(rc));

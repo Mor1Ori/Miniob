@@ -59,6 +59,7 @@ extern double atof();
 %option case-insensitive
 %option bison-locations
 
+/* 左侧是宏定义，右侧是正则表达式，用于下面规则的匹配 */
 WHITE_SAPCE      [\ \t\b\f]
 DIGIT            [0-9]+
 
@@ -70,6 +71,7 @@ QUOTE            [\'\"]
 /* 规则匹配的优先级：*/
 /* 1. 匹配的规则长的优先 */
 /* 2. 写在最前面的优先 */
+/* 左边是上面定义的宏或者是正则表达式，右边是返回的token */
 
 /* yylval 就可以认为是 yacc 中 %union 定义的结构体(union 结构) */
 %%
@@ -79,6 +81,9 @@ QUOTE            [\'\"]
 
 [\-]?{DIGIT}+                           yylval->number=atoi(yytext); RETURN_TOKEN(NUMBER);
 [\-]?{DIGIT}+{DOT}{DIGIT}+              yylval->floats=(float)(atof(yytext)); RETURN_TOKEN(FLOAT);
+\"[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}\"          yylval->string=strdup(yytext); RETURN_TOKEN(DATE);
+\'[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}\'          yylval->string=strdup(yytext); RETURN_TOKEN(DATE);
+
 
 ";"                                     RETURN_TOKEN(SEMICOLON);
 {DOT}                                   RETURN_TOKEN(DOT);
@@ -109,8 +114,8 @@ COMMIT                                  RETURN_TOKEN(TRX_COMMIT);
 ROLLBACK                                RETURN_TOKEN(TRX_ROLLBACK);
 INT                                     RETURN_TOKEN(INT_T);
 CHAR                                    RETURN_TOKEN(STRING_T);
-DATE                                    RETURN_TOKEN(DATE_T);
 FLOAT                                   RETURN_TOKEN(FLOAT_T);
+DATE                                    RETURN_TOKEN(DATE_T);
 LOAD                                    RETURN_TOKEN(LOAD);
 DATA                                    RETURN_TOKEN(DATA);
 INFILE                                  RETURN_TOKEN(INFILE);
@@ -119,6 +124,10 @@ GROUP                                   RETURN_TOKEN(GROUP);
 BY                                      RETURN_TOKEN(BY);
 STORAGE                                 RETURN_TOKEN(STORAGE);
 FORMAT                                  RETURN_TOKEN(FORMAT);
+NOT                                     RETURN_TOKEN(NOT);
+NULL                                    RETURN_TOKEN(NULL_T);
+LIKE                                    RETURN_TOKEN(LIKE);
+IS                                      RETURN_TOKEN(IS);
 {ID}                                    yylval->string=strdup(yytext); RETURN_TOKEN(ID);
 "("                                     RETURN_TOKEN(LBRACE);
 ")"                                     RETURN_TOKEN(RBRACE);

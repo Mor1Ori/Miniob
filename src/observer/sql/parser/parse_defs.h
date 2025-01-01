@@ -43,7 +43,7 @@ struct RelAttrSqlNode
  * @brief 描述比较运算符
  * @ingroup SQLParser
  */
-enum CompOp
+enum class CompOp
 {
   EQUAL_TO,     ///< "="
   LESS_EQUAL,   ///< "<="
@@ -51,7 +51,11 @@ enum CompOp
   LESS_THAN,    ///< "<"
   GREAT_EQUAL,  ///< ">="
   GREAT_THAN,   ///< ">"
-  NO_OP
+  LIKE,         ///< "like"
+  NOT_LIKE,     ///< "not like"
+  IS,           ///< is null
+  NOT_IS,       ///< is not null
+  NO_OP,
 };
 
 /**
@@ -106,7 +110,7 @@ struct CalcSqlNode
 /**
  * @brief 描述一个insert语句
  * @ingroup SQLParser
- * @details 于Selects类似，也做了很多简化
+ * @details 与Selects类似，也做了很多简化
  */
 struct InsertSqlNode
 {
@@ -146,6 +150,7 @@ struct AttrInfoSqlNode
   AttrType    type;    ///< Type of attribute
   std::string name;    ///< Attribute name
   size_t      length;  ///< Length of attribute
+  bool        nullable;
 };
 
 /**
