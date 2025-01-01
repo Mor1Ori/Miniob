@@ -90,6 +90,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         STRING_T
         FLOAT_T
         DATE_T
+        VECTOR_T
         HELP
         EXIT
         DOT //QUOTE
@@ -115,6 +116,9 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         NOT
         NULL_T
         LIKE
+        L2_DISTANCE
+        COSINE_DISTANCE
+        INNER_PRODUCT
         IS
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
@@ -135,6 +139,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
   char *                                     string;
   int                                        number;
   float                                      floats;
+  std::vector<UpdateInfoNode>*               update_info_list;
 }
 
 
@@ -143,6 +148,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %token <string> ID
 %token <string> SSS
 %token <string> DATE
+%token <string> VECTOR
 //非终结符
 
 /** 
@@ -410,6 +416,7 @@ type:
     | STRING_T { $$ = static_cast<int>(AttrType::CHARS); }
     | FLOAT_T  { $$ = static_cast<int>(AttrType::FLOATS); }
     | DATE_T   { $$ = static_cast<int>(AttrType::DATES); }
+    | VECTOR_T   { $$ = static_cast<int>(AttrType::VECTORS); }
     ;
 insert_stmt:        /*insert   语句的语法解析树*/
     INSERT INTO ID VALUES LBRACE value value_list RBRACE 
@@ -464,6 +471,17 @@ value:
         $$->reset();
       }
       free(tmp);
+      free($1);
+    }
+    |VECTOR {
+      // 如果以双引号或单引号开头，去掉头尾的引号
+      if ($1[0] == '\"' || $1[0] == '\'') {
+        char *tmp = common::substr($1,1,strlen($1)-2);
+        $$ = Value::from_vector(tmp);
+        free(tmp);
+      } else {
+        $$ = Value::from_vector($1);
+      }
       free($1);
     }
     |NULL_T {
@@ -606,7 +624,6 @@ expression:
     | '*' {
       $$ = new StarExpr();
     }
-
     ;
 
 rel_attr:
