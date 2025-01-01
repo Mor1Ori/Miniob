@@ -12,6 +12,9 @@ See the Mulan PSL v2 for more details. */
 // Created by WangYunlai on 2023/06/28.
 //
 
+#include <sstream>
+#include <limits>
+
 #include "common/value.h"
 
 #include "common/lang/comparator.h"
@@ -315,7 +318,7 @@ string Value::to_string() const
   if (is_null_) {
     return "NULL";
   }
-  RC     rc = DataType::type_instance(this->attr_type_)->to_string(*this, res);
+  RC rc = DataType::type_instance(this->attr_type_)->to_string(*this, res);
   if (OB_FAIL(rc)) {
     LOG_WARN("failed to convert value to string. type=%s", attr_type_to_string(this->attr_type_));
     return "";
