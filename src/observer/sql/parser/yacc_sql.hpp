@@ -98,37 +98,39 @@ extern int yydebug;
     NOT_EXISTS = 299,              /* NOT_EXISTS  */
     LOAD = 300,                    /* LOAD  */
     DATA = 301,                    /* DATA  */
-    INFILE = 302,                  /* INFILE  */
-    EXPLAIN = 303,                 /* EXPLAIN  */
-    STORAGE = 304,                 /* STORAGE  */
-    FORMAT = 305,                  /* FORMAT  */
-    AS = 306,                      /* AS  */
-    EQ = 307,                      /* EQ  */
-    LT = 308,                      /* LT  */
-    GT = 309,                      /* GT  */
-    LE = 310,                      /* LE  */
-    GE = 311,                      /* GE  */
-    NE = 312,                      /* NE  */
-    NOT = 313,                     /* NOT  */
-    NULL_T = 314,                  /* NULL_T  */
-    LIKE = 315,                    /* LIKE  */
-    L2_DISTANCE = 316,             /* L2_DISTANCE  */
-    COSINE_DISTANCE = 317,         /* COSINE_DISTANCE  */
-    INNER_PRODUCT = 318,           /* INNER_PRODUCT  */
-    IS = 319,                      /* IS  */
-    COUNT = 320,                   /* COUNT  */
-    MAX = 321,                     /* MAX  */
-    MIN = 322,                     /* MIN  */
-    AVG = 323,                     /* AVG  */
-    SUM = 324,                     /* SUM  */
-    TEXT_T = 325,                  /* TEXT_T  */
-    NUMBER = 326,                  /* NUMBER  */
-    FLOAT = 327,                   /* FLOAT  */
-    ID = 328,                      /* ID  */
-    SSS = 329,                     /* SSS  */
-    DATE = 330,                    /* DATE  */
-    VECTOR = 331,                  /* VECTOR  */
-    UMINUS = 332                   /* UMINUS  */
+    ORDER = 302,                   /* ORDER  */
+    ASC = 303,                     /* ASC  */
+    INFILE = 304,                  /* INFILE  */
+    EXPLAIN = 305,                 /* EXPLAIN  */
+    STORAGE = 306,                 /* STORAGE  */
+    FORMAT = 307,                  /* FORMAT  */
+    AS = 308,                      /* AS  */
+    EQ = 309,                      /* EQ  */
+    LT = 310,                      /* LT  */
+    GT = 311,                      /* GT  */
+    LE = 312,                      /* LE  */
+    GE = 313,                      /* GE  */
+    NE = 314,                      /* NE  */
+    NOT = 315,                     /* NOT  */
+    NULL_T = 316,                  /* NULL_T  */
+    LIKE = 317,                    /* LIKE  */
+    L2_DISTANCE = 318,             /* L2_DISTANCE  */
+    COSINE_DISTANCE = 319,         /* COSINE_DISTANCE  */
+    INNER_PRODUCT = 320,           /* INNER_PRODUCT  */
+    IS = 321,                      /* IS  */
+    COUNT = 322,                   /* COUNT  */
+    MAX = 323,                     /* MAX  */
+    MIN = 324,                     /* MIN  */
+    AVG = 325,                     /* AVG  */
+    SUM = 326,                     /* SUM  */
+    TEXT_T = 327,                  /* TEXT_T  */
+    NUMBER = 328,                  /* NUMBER  */
+    FLOAT = 329,                   /* FLOAT  */
+    ID = 330,                      /* ID  */
+    SSS = 331,                     /* SSS  */
+    DATE = 332,                    /* DATE  */
+    VECTOR = 333,                  /* VECTOR  */
+    UMINUS = 334                   /* UMINUS  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -137,7 +139,7 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 137 "yacc_sql.y"
+#line 139 "yacc_sql.y"
 
   ParsedSqlNode *                            sql_node;
   ConditionSqlNode *                         condition;
@@ -145,6 +147,8 @@ union YYSTYPE
   enum CompOp                                comp;
   RelAttrSqlNode *                           rel_attr;
   RelationSqlNode *                          relation;
+  OrderBySqlNode *                           order_by_node;
+  std::vector<OrderBySqlNode> *              order_by_list;
   std::vector<AttrInfoSqlNode> *             attr_infos;
   AttrInfoSqlNode *                          attr_info;
   Expression *                               expression;
@@ -159,7 +163,7 @@ union YYSTYPE
   float                                      floats;
   std::vector<UpdateInfoNode>*               update_info_list;
 
-#line 163 "yacc_sql.hpp"
+#line 167 "yacc_sql.hpp"
 
 };
 typedef union YYSTYPE YYSTYPE;
