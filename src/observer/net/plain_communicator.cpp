@@ -186,6 +186,7 @@ RC PlainCommunicator::write_result_internal(SessionEvent *event, bool &need_disc
   RC rc = RC::SUCCESS;
 
   need_disconnect = true;
+  empty_result_flag = false;
 
   SqlResult *sql_result = event->sql_result();
 
@@ -193,7 +194,7 @@ RC PlainCommunicator::write_result_internal(SessionEvent *event, bool &need_disc
     return write_state(event, need_disconnect);
   }
 
-  rc = sql_result->open();
+  rc = sql_result->open(); // hint: order by 在open的时候会next
   if (OB_FAIL(rc)) {
     sql_result->close();
     sql_result->set_return_code(rc);
@@ -203,6 +204,7 @@ RC PlainCommunicator::write_result_internal(SessionEvent *event, bool &need_disc
   const TupleSchema &schema   = sql_result->tuple_schema();
   const int          cell_num = schema.cell_num();
 
+  // 表头
   for (int i = 0; i < cell_num; i++) {
     const TupleCellSpec &spec  = schema.cell_at(i);
     const char          *alias = spec.alias();
@@ -215,6 +217,9 @@ RC PlainCommunicator::write_result_internal(SessionEvent *event, bool &need_disc
         //   LOG_WARN("failed to send data to client. err=%s", strerror(errno));
         //   return rc;
         // }
+
+        // 这里先不要把表头写入到 writer_ 中，ssq 在第一次执行算子之后可能会返回报错（MYSQL ERROR 1242）
+        // 如果先写了表头，那表头也会一起输出，过不了测
         delayed_table_header.append(delim);
       }
 
@@ -230,6 +235,7 @@ RC PlainCommunicator::write_result_internal(SessionEvent *event, bool &need_disc
     }
   }
 
+  // 表头换行符
   if (cell_num > 0) {
     // char newline = '\n';
 
@@ -259,6 +265,7 @@ RC PlainCommunicator::write_result_internal(SessionEvent *event, bool &need_disc
     return rc;
   }
 
+  // 如果处理没问题，并且没有数据返回，那么就返回一个表头
   if (!empty_result_flag) {
     if (!delayed_table_header.empty()) {
       rc = writer_->writen(delayed_table_header.data(), delayed_table_header.size());
@@ -291,6 +298,7 @@ RC PlainCommunicator::write_result_internal(SessionEvent *event, bool &need_disc
     rc = rc_close;
   }
 
+  delayed_table_header.clear();
   return rc;
 }
 

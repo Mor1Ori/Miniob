@@ -27,6 +27,7 @@ OrderByPhysicalOperator::OrderByPhysicalOperator(vector<unique_ptr<Expression>> 
 
 RC OrderByPhysicalOperator::open(Trx *trx)
 {
+  tuple_idx_ = 0;
   if (children_.empty()) {
     return RC::SUCCESS;
   }
@@ -38,10 +39,17 @@ RC OrderByPhysicalOperator::open(Trx *trx)
     return rc;
   }
 
-  while (child->next() == RC::SUCCESS) {
+  // while (child->next() == RC::SUCCESS) {
+  // 不屏蔽下层算子传回来的 rc
+  while ((rc = child->next()) == RC::SUCCESS) {
     ValueListTuple tuple;
     ValueListTuple::make(*child->current_tuple(), tuple);
     tuples_.push_back(std::make_unique<ValueListTuple>(tuple));
+  }
+
+  if (rc != RC::RECORD_EOF) {
+    LOG_WARN("ORDER-BY: failed to get next tuple. rc=%s", strrc(rc));
+    return rc;
   }
 
   std::sort(tuples_.begin(), tuples_.end(), [this](const std::unique_ptr<ValueListTuple> &left, const std::unique_ptr<ValueListTuple> &right) {
@@ -63,11 +71,19 @@ RC OrderByPhysicalOperator::open(Trx *trx)
 RC OrderByPhysicalOperator::next()
 {
   tuple_idx_++;
+  LOG_INFO("ORDER-BY: tuple_idx_=%d, tuples_.size()=%d", tuple_idx_, tuples_.size());
   return tuple_idx_ <= tuples_.size() ? RC::SUCCESS : RC::RECORD_EOF;
 }
 
 RC OrderByPhysicalOperator::close()
 {
+  if (children_.empty()) {
+    return RC::SUCCESS;
+  }
+  // close 的时候养成习惯，清理资源，关闭子算子！！！！！！spent 30mins hereee
+  children_[0]->close();
+  tuples_.clear();
+  tuple_idx_ = 0;
   return RC::SUCCESS;
 }
 Tuple *OrderByPhysicalOperator::current_tuple()

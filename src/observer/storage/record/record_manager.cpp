@@ -73,6 +73,7 @@ RecordPageIterator::~RecordPageIterator() = default;
 
 void RecordPageIterator::init(RecordPageHandler *record_page_handler, SlotNum start_slot_num /*=0*/)
 {
+  // RecordFileScanner::init() 会调用这个函数。
   record_page_handler_ = record_page_handler;
   page_num_            = record_page_handler->get_page_num();
   bitmap_.init(record_page_handler->bitmap_, record_page_handler->page_header_->record_capacity);
@@ -828,6 +829,9 @@ RC RecordFileScanner::close_scan()
   if (condition_filter_ != nullptr) {
     condition_filter_ = nullptr;
   }
+
+  record_page_iterator_.clean_record_page_handler_();
+
   // if (record_page_handler_ != nullptr) {
   //   record_page_handler_->cleanup();
   //   delete record_page_handler_;
@@ -836,7 +840,6 @@ RC RecordFileScanner::close_scan()
 
   // // SSQ 需要加上这个才能正常运行。但是不知道会不会导致 memory leak
   // record_page_iterator_ = RecordPageIterator();
-  record_page_iterator_.clean_record_page_handler_();
 
   return RC::SUCCESS;
 }
