@@ -91,6 +91,14 @@ RC RecordPageIterator::next(Record &record)
   return record.rid().slot_num != -1 ? RC::SUCCESS : RC::RECORD_EOF;
 }
 
+void RecordPageIterator::clean_record_page_handler_() {
+  if (record_page_handler_ != nullptr) {
+    record_page_handler_->cleanup();
+    delete record_page_handler_;
+    record_page_handler_ = nullptr;
+  }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 RecordPageHandler::~RecordPageHandler() { cleanup(); }
@@ -820,14 +828,15 @@ RC RecordFileScanner::close_scan()
   if (condition_filter_ != nullptr) {
     condition_filter_ = nullptr;
   }
-  if (record_page_handler_ != nullptr) {
-    record_page_handler_->cleanup();
-    delete record_page_handler_;
-    record_page_handler_ = nullptr;
-  }
+  // if (record_page_handler_ != nullptr) {
+  //   record_page_handler_->cleanup();
+  //   delete record_page_handler_;
+  //   record_page_handler_ = nullptr;
+  // }
 
-  // SSQ 需要加上这个才能正常运行。但是不知道会不会导致 memory leak
-  record_page_iterator_ = RecordPageIterator();
+  // // SSQ 需要加上这个才能正常运行。但是不知道会不会导致 memory leak
+  // record_page_iterator_ = RecordPageIterator();
+  record_page_iterator_.clean_record_page_handler_();
 
   return RC::SUCCESS;
 }
