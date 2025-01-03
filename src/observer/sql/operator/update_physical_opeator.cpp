@@ -17,7 +17,9 @@ RC UpdatePhysicalOperator::open(Trx *trx)
       for (size_t i = 0; i < exprs_.size(); i++) {
         Value cell;
         RC    rc = exprs_[i]->get_value(*tuple, cell);
-        if (OB_FAIL(rc)) {
+        if (rc == RC::RECORD_EOF && field_metas_[i].nullable()) {
+          cell.set_null();
+        } else if (OB_FAIL(rc)) {
           LOG_WARN("cannot get value from expression: %s", strrc(rc));
         }
         if (cell.is_null() && !field_metas_[i].nullable()) {

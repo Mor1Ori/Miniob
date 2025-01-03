@@ -103,7 +103,6 @@ RC FloatType::to_string(const Value &val, string &result) const
   return RC::SUCCESS;
 }
 
-
 RC FloatType::cast_to(const Value &val, AttrType type, Value &result) const
 {
   switch (type) {
